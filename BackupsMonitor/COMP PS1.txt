@@ -1,0 +1,12 @@
+cd pasta
+
+Invoke-PS2EXE `
+    -InputFile ".\MonitoraBackups2.0.ps1" `
+    -OutputFile ".\MonitorBCK2.0.exe" `
+    -NoConsole `
+    -IconFile ".\bck.ico" `
+    -Title "MonitorBCK" `
+    -Description "Visualizar Backups" `
+    -Product "MonitorBCK" `
+    -Company "Guilherme - Analista Infra" `
+    -Version "2.0"

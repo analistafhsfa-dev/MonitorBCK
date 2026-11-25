@@ -1,0 +1,1200 @@
+```powershell
+# ============================================================
+# MONITOR DE BACKUPS
+# PowerShell + WPF
+# Sem C#
+# Sem acentuacao
+#
+# Criado por Guilherme Analista Infra Seg
+# ============================================================
+
+Add-Type -AssemblyName PresentationFramework
+Add-Type -AssemblyName PresentationCore
+Add-Type -AssemblyName WindowsBase
+
+$ErrorActionPreference = "Stop"
+
+# ============================================================
+# CONFIGURACOES
+# ============================================================
+
+$SistemasFixos = @(
+    "ARSistemas",
+    "CCIH",
+    "DES",
+    "MedWare",
+    "Nasajon",
+    "PathControl",
+    "Pixeon Aurora",
+    "Pixeon Database",
+    "Prodabel",
+    "Senior VetorRH",
+    "Senior EDocs"
+)
+
+$SistemasSegunda = @(
+    "Senior Glassfish",
+    "Senior",
+    "Senior Teste"
+)
+
+# Mapeamento dos servidores
+$Servidores = @{
+    "10.0.0.233"  = "Servidor Backup"
+    "10.0.12.68"  = "Servidor SGBD"
+}
+
+# Mapeamento do nome encontrado na pasta para o nome exibido
+$MapeamentoSistemas = @{
+    "arsistemas"       = "ARSistemas"
+    "ccih"             = "CCIH"
+    "des"              = "DES"
+    "medware"          = "MedWare"
+    "nasajon"          = "Nasajon"
+    "pathcontrol"      = "PathControl"
+    "pixeon aurora"    = "Pixeon Aurora"
+    "pixeon database"  = "Pixeon Database"
+    "prodabel"         = "Prodabel"
+    "senior vetorhr"   = "Senior VetorRH"
+    "senior edocs"     = "Senior EDocs"
+    "senior glassfish" = "Senior Glassfish"
+    "senior"           = "Senior"
+    "senior teste"     = "Senior Teste"
+}
+
+# ============================================================
+# XAML
+# ============================================================
+
+[xml]$Xaml = @"
+<Window
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Monitor de Backups"
+    Width="1000"
+    Height="780"
+    MinWidth="850"
+    MinHeight="650"
+    WindowStartupLocation="CenterScreen"
+    Background="#1E1E1E"
+    Foreground="#FFFFFF">
+
+    <Window.Resources>
+
+        <SolidColorBrush x:Key="PanelBrush" Color="#252526"/>
+        <SolidColorBrush x:Key="PanelLightBrush" Color="#2D2D30"/>
+        <SolidColorBrush x:Key="BorderBrushCustom" Color="#3F3F46"/>
+        <SolidColorBrush x:Key="TextSecondary" Color="#BDBDBD"/>
+
+        <Style TargetType="ScrollBar">
+            <Setter Property="Width" Value="12"/>
+        </Style>
+
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#252526"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#333337"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#555555"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+    </Window.Resources>
+
+    <Grid Margin="15">
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- CABECALHO -->
+
+        <Border
+            Grid.Row="0"
+            Background="#252526"
+            CornerRadius="5"
+            Padding="15"
+            Margin="0,0,0,12">
+
+            <StackPanel>
+
+                <TextBlock
+                    Text="MONITOR DE BACKUPS"
+                    FontSize="23"
+                    FontWeight="Bold"/>
+
+                <TextBlock
+                    Text="Analise automatica do relatorio de backups"
+                    FontSize="12"
+                    Foreground="#BDBDBD"
+                    Margin="0,4,0,0"/>
+
+            </StackPanel>
+
+        </Border>
+
+        <!-- AREA DE COLAGEM -->
+
+        <Border
+            Grid.Row="1"
+            Background="#252526"
+            BorderBrush="#3F3F46"
+            BorderThickness="1"
+            CornerRadius="5"
+            Padding="12"
+            Margin="0,0,0,10">
+
+            <Grid>
+
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="125"/>
+                </Grid.RowDefinitions>
+
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock
+                    Grid.Row="0"
+                    Text="COLE AQUI O RELATORIO"
+                    FontSize="13"
+                    FontWeight="Bold"
+                    Margin="0,0,0,8"/>
+
+                <StackPanel
+                    Grid.Row="0"
+                    Grid.Column="1"
+                    Orientation="Horizontal">
+
+                    <Button
+                        x:Name="BtnColar"
+                        Content="Colar"
+                        Width="80"
+                        Height="30"
+                        Margin="5,0,0,0"/>
+
+                    <Button
+                        x:Name="BtnLimpar"
+                        Content="Limpar"
+                        Width="80"
+                        Height="30"
+                        Margin="5,0,0,0"/>
+
+                </StackPanel>
+
+                <TextBox
+                    x:Name="TxtRelatorio"
+                    Grid.Row="1"
+                    Grid.ColumnSpan="2"
+                    AcceptsReturn="True"
+                    TextWrapping="NoWrap"
+                    VerticalScrollBarVisibility="Auto"
+                    HorizontalScrollBarVisibility="Auto"
+                    VerticalContentAlignment="Top"
+                    FontFamily="Consolas"
+                    FontSize="12"/>
+
+            </Grid>
+
+        </Border>
+
+        <!-- SERVIDOR -->
+
+        <Border
+            Grid.Row="2"
+            Background="#252526"
+            BorderBrush="#3F3F46"
+            BorderThickness="1"
+            CornerRadius="5"
+            Padding="12"
+            Margin="0,0,0,10">
+
+            <Grid>
+
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock
+                    Text="SERVIDOR:"
+                    FontWeight="Bold"
+                    FontSize="13"
+                    VerticalAlignment="Center"/>
+
+                <TextBlock
+                    x:Name="TxtServidor"
+                    Grid.Column="1"
+                    Text="Aguardando relatorio..."
+                    Margin="15,0,0,0"
+                    FontSize="14"
+                    FontWeight="Bold"
+                    Foreground="#BDBDBD"
+                    VerticalAlignment="Center"/>
+
+            </Grid>
+
+        </Border>
+
+        <!-- LISTA DE BACKUPS -->
+
+        <Border
+            Grid.Row="3"
+            Background="#252526"
+            BorderBrush="#3F3F46"
+            BorderThickness="1"
+            CornerRadius="5"
+            Padding="12">
+
+            <Grid>
+
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="230"/>
+                    <ColumnDefinition Width="35"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock
+                    Grid.Row="0"
+                    Grid.Column="0"
+                    Text="SISTEMA"
+                    FontWeight="Bold"
+                    Foreground="#BDBDBD"
+                    Margin="5,0,0,10"/>
+
+                <TextBlock
+                    Grid.Row="0"
+                    Grid.Column="1"
+                    Text="LED"
+                    FontWeight="Bold"
+                    Foreground="#BDBDBD"
+                    HorizontalAlignment="Center"
+                    Margin="0,0,0,10"/>
+
+                <TextBlock
+                    Grid.Row="0"
+                    Grid.Column="2"
+                    Text="STATUS"
+                    FontWeight="Bold"
+                    Foreground="#BDBDBD"
+                    Margin="10,0,0,10"/>
+
+                <ScrollViewer
+                    x:Name="ScrollBackups"
+                    Grid.Row="1"
+                    Grid.ColumnSpan="3"
+                    VerticalScrollBarVisibility="Auto">
+
+                    <StackPanel
+                        x:Name="PainelBackups"/>
+
+                </ScrollViewer>
+
+            </Grid>
+
+        </Border>
+
+        <!-- STATUS -->
+
+        <Border
+            Grid.Row="4"
+            Background="#252526"
+            Padding="8"
+            Margin="0,10,0,0">
+
+            <Grid>
+
+                <TextBlock
+                    x:Name="TxtStatus"
+                    Text="Status: Aguardando relatorio..."
+                    Foreground="#BDBDBD"
+                    FontSize="12"/>
+
+                <TextBlock
+                    Text="PowerShell + WPF"
+                    HorizontalAlignment="Right"
+                    Foreground="#666666"
+                    FontSize="11"/>
+
+            </Grid>
+
+        </Border>
+
+    </Grid>
+
+</Window>
+"@
+
+# ============================================================
+# CARREGAMENTO DA JANELA
+# ============================================================
+
+$Reader = New-Object System.Xml.XmlNodeReader $Xaml
+$Window = [Windows.Markup.XamlReader]::Load($Reader)
+
+$TxtRelatorio  = $Window.FindName("TxtRelatorio")
+$BtnColar      = $Window.FindName("BtnColar")
+$BtnLimpar     = $Window.FindName("BtnLimpar")
+$TxtServidor   = $Window.FindName("TxtServidor")
+$PainelBackups = $Window.FindName("PainelBackups")
+$TxtStatus     = $Window.FindName("TxtStatus")
+
+# ============================================================
+# FUNCAO - CRIAR LED
+# ============================================================
+
+function New-Led
+{
+    param(
+        [string]$Cor = "#666666"
+    )
+
+    $Ellipse = New-Object System.Windows.Shapes.Ellipse
+
+    $Ellipse.Width = 16
+    $Ellipse.Height = 16
+
+    $Ellipse.Fill =
+        [System.Windows.Media.BrushConverter]::new().ConvertFromString($Cor)
+
+    $Ellipse.Stroke = [System.Windows.Media.Brushes]::Black
+    $Ellipse.StrokeThickness = 1
+
+    $Ellipse.HorizontalAlignment = "Center"
+    $Ellipse.VerticalAlignment = "Center"
+
+    return $Ellipse
+}
+
+# ============================================================
+# FUNCAO - ALTERAR LED
+# ============================================================
+
+function Set-Led
+{
+    param(
+        [System.Windows.Shapes.Ellipse]$Led,
+        [string]$Cor
+    )
+
+    $Led.Fill =
+        [System.Windows.Media.BrushConverter]::new().ConvertFromString($Cor)
+}
+
+# ============================================================
+# FUNCAO - CRIAR LINHA DO SISTEMA
+# ============================================================
+
+function New-SystemRow
+{
+    param(
+        [string]$Nome
+    )
+
+    $Grid = New-Object System.Windows.Controls.Grid
+
+    $Grid.Margin = "0,1,0,1"
+    $Grid.Height = 35
+
+    $ColunaNome = New-Object System.Windows.Controls.ColumnDefinition
+    $ColunaNome.Width = "230"
+
+    $ColunaLed = New-Object System.Windows.Controls.ColumnDefinition
+    $ColunaLed.Width = "35"
+
+    $ColunaStatus = New-Object System.Windows.Controls.ColumnDefinition
+    $ColunaStatus.Width = "*"
+
+    $Grid.ColumnDefinitions.Add($ColunaNome)
+    $Grid.ColumnDefinitions.Add($ColunaLed)
+    $Grid.ColumnDefinitions.Add($ColunaStatus)
+
+    # Nome
+
+    $TxtNome = New-Object System.Windows.Controls.TextBlock
+
+    $TxtNome.Text = $Nome
+    $TxtNome.FontSize = 13
+    $TxtNome.VerticalAlignment = "Center"
+    $TxtNome.Margin = "5,0,0,0"
+
+    [System.Windows.Controls.Grid]::SetColumn($TxtNome, 0)
+
+    $Grid.Children.Add($TxtNome) | Out-Null
+
+    # LED
+
+    $Led = New-Led "#666666"
+
+    [System.Windows.Controls.Grid]::SetColumn($Led, 1)
+
+    $Grid.Children.Add($Led) | Out-Null
+
+    # Status
+
+    $TxtStatusLinha = New-Object System.Windows.Controls.TextBlock
+
+    $TxtStatusLinha.Text = "Aguardando dados..."
+    $TxtStatusLinha.FontSize = 12
+    $TxtStatusLinha.Foreground =
+        [System.Windows.Media.Brushes]::LightGray
+
+    $TxtStatusLinha.VerticalAlignment = "Center"
+    $TxtStatusLinha.Margin = "10,0,0,0"
+
+    [System.Windows.Controls.Grid]::SetColumn(
+        $TxtStatusLinha,
+        2
+    )
+
+    $Grid.Children.Add($TxtStatusLinha) | Out-Null
+
+    $Grid.Tag = @{
+        Nome   = $Nome
+        Led    = $Led
+        Status = $TxtStatusLinha
+    }
+
+    $PainelBackups.Children.Add($Grid) | Out-Null
+
+    return $Grid
+}
+
+# ============================================================
+# FUNCAO - MONTAR LISTA
+# ============================================================
+
+function Initialize-SystemList
+{
+    $PainelBackups.Children.Clear()
+
+    foreach ($Sistema in $SistemasFixos)
+    {
+        New-SystemRow -Nome $Sistema | Out-Null
+    }
+
+    # Os tres sistemas abaixo aparecem somente na segunda-feira
+
+    if ((Get-Date).DayOfWeek -eq [DayOfWeek]::Monday)
+    {
+        foreach ($Sistema in $SistemasSegunda)
+        {
+            New-SystemRow -Nome $Sistema | Out-Null
+        }
+    }
+}
+
+# ============================================================
+# FUNCAO - IDENTIFICAR SERVIDOR
+# ============================================================
+
+function Get-ServerInformation
+{
+    param(
+        [string]$Texto
+    )
+
+    # Procura um IP depois de \\
+
+    $MatchesIP = [regex]::Matches(
+        $Texto,
+        '\\\\(?<IP>\d{1,3}(?:\.\d{1,3}){3})'
+    )
+
+    foreach ($Match in $MatchesIP)
+    {
+        $IP = $Match.Groups["IP"].Value
+
+        if ($Servidores.ContainsKey($IP))
+        {
+            return @{
+                IP   = $IP
+                Nome = $Servidores[$IP]
+            }
+        }
+    }
+
+    if ($MatchesIP.Count -gt 0)
+    {
+        $IP = $MatchesIP[0].Groups["IP"].Value
+
+        return @{
+            IP   = $IP
+            Nome = "Servidor nao cadastrado"
+        }
+    }
+
+    return $null
+}
+
+# ============================================================
+# FUNCAO - EXTRAIR DATA E HORA DA LINHA NOME
+# ============================================================
+
+function Get-DateTimeFromNameLine
+{
+    param(
+        [string]$Linha
+    )
+
+    # Exemplo:
+    #
+    # Nome: TERCA-FEIRA 2026-09-22 00;30;06 (Completo).7z
+    #
+    # Resultado:
+    #
+    # Data = 22/09/2026
+    # Hora = 00:30:06
+
+    $Regex =
+        '(?<Data>\d{4}-\d{2}-\d{2})\s+' +
+        '(?<Hora>\d{2})[:;](?<Minuto>\d{2})[:;](?<Segundo>\d{2})'
+
+    $Match = [regex]::Match(
+        $Linha,
+        $Regex
+    )
+
+    if (-not $Match.Success)
+    {
+        return $null
+    }
+
+    $DataTexto = $Match.Groups["Data"].Value
+    $Hora      = $Match.Groups["Hora"].Value
+    $Minuto    = $Match.Groups["Minuto"].Value
+    $Segundo   = $Match.Groups["Segundo"].Value
+
+    try
+    {
+        return [datetime]::ParseExact(
+            "$DataTexto $Hora`:$Minuto`:$Segundo",
+            "yyyy-MM-dd HH:mm:ss",
+            [Globalization.CultureInfo]::InvariantCulture
+        )
+    }
+    catch
+    {
+        return $null
+    }
+}
+
+# ============================================================
+# FUNCAO - EXTRAIR TAMANHO
+# ============================================================
+
+function Get-BackupSize
+{
+    param(
+        [string]$Linha
+    )
+
+    # Exemplo:
+    #
+    # Tamanho: 2,03 GB
+
+    if ($Linha -match '^\s*Tamanho\s*:\s*(.+?)\s*$')
+    {
+        $Tamanho = $Matches[1].Trim()
+
+        if (-not [string]::IsNullOrWhiteSpace($Tamanho))
+        {
+            return $Tamanho
+        }
+    }
+
+    return $null
+}
+
+# ============================================================
+# FUNCAO - IDENTIFICAR SISTEMA PELO CAMINHO DA PASTA
+# ============================================================
+
+function Get-SystemFromFolder
+{
+    param(
+        [string]$Linha
+    )
+
+    # Exemplo:
+    #
+    # Pasta: \\10.0.0.233\d$\Backup_Sistemas\Backup SGBD\arsistemas
+    #
+    # O ultimo diretorio sera utilizado como identificador.
+
+    if ($Linha -notmatch '^\s*Pasta\s*:\s*(.+?)\s*$')
+    {
+        return $null
+    }
+
+    $Caminho = $Matches[1].Trim()
+
+    # Remove barras finais
+
+    $Caminho = $Caminho.TrimEnd('\')
+
+    # Pega somente o ultimo diretorio
+
+    $Partes = $Caminho -split '\\'
+
+    $Ultimo = $Partes[-1].Trim()
+
+    if ([string]::IsNullOrWhiteSpace($Ultimo))
+    {
+        return $null
+    }
+
+    $Chave = $Ultimo.ToLowerInvariant()
+
+    if ($MapeamentoSistemas.ContainsKey($Chave))
+    {
+        return $MapeamentoSistemas[$Chave]
+    }
+
+    # Caso nao exista no mapeamento,
+    # retorna o nome original.
+
+    return $Ultimo
+}
+
+# ============================================================
+# FUNCAO - EXTRAIR TODOS OS BLOCOS DE BACKUP
+# ============================================================
+
+function Get-BackupRecords
+{
+    param(
+        [string]$Texto
+    )
+
+    $Resultado = @()
+
+    $Linhas = $Texto -split "`r?`n"
+
+    for ($i = 0; $i -lt $Linhas.Count; $i++)
+    {
+        $LinhaAtual = $Linhas[$i].Trim()
+
+        # Procura inicio do bloco
+
+        if ($LinhaAtual -notmatch '^\s*Nome\s*:')
+        {
+            continue
+        }
+
+        # ----------------------------------------------------
+        # DATA
+        # ----------------------------------------------------
+
+        $DataHora = Get-DateTimeFromNameLine `
+            -Linha $LinhaAtual
+
+        if ($null -eq $DataHora)
+        {
+            continue
+        }
+
+        # ----------------------------------------------------
+        # TAMANHO
+        # ----------------------------------------------------
+
+        $Tamanho = $null
+
+        # Procura as linhas seguintes do mesmo bloco
+        # ate encontrar Pasta.
+
+        $PastaLinha = $null
+
+        for (
+            $j = $i + 1;
+            $j -lt $Linhas.Count;
+            $j++
+        )
+        {
+            $LinhaBloco = $Linhas[$j].Trim()
+
+            if ($LinhaBloco -match '^\s*Nome\s*:')
+            {
+                break
+            }
+
+            if ($LinhaBloco -match '^\s*Tamanho\s*:')
+            {
+                $Tamanho = Get-BackupSize `
+                    -Linha $LinhaBloco
+            }
+
+            if ($LinhaBloco -match '^\s*Pasta\s*:')
+            {
+                $PastaLinha = $LinhaBloco
+                break
+            }
+        }
+
+        # ----------------------------------------------------
+        # PASTA / SISTEMA
+        # ----------------------------------------------------
+
+        if ($null -eq $PastaLinha)
+        {
+            continue
+        }
+
+        $Sistema = Get-SystemFromFolder `
+            -Linha $PastaLinha
+
+        if ([string]::IsNullOrWhiteSpace($Sistema))
+        {
+            continue
+        }
+
+        # ----------------------------------------------------
+        # SERVIDOR / IP
+        # ----------------------------------------------------
+
+        $IP = $null
+
+        if (
+            $PastaLinha -match
+            '\\\\(?<IP>\d{1,3}(?:\.\d{1,3}){3})'
+        )
+        {
+            $IP = $Matches["IP"]
+        }
+
+        # ----------------------------------------------------
+        # TAMANHO PADRAO
+        # ----------------------------------------------------
+
+        if ([string]::IsNullOrWhiteSpace($Tamanho))
+        {
+            $Tamanho = "Backup Pasta"
+        }
+
+        # ----------------------------------------------------
+        # CRIA REGISTRO
+        # ----------------------------------------------------
+
+        $Resultado += [PSCustomObject]@{
+            Nome     = $Sistema
+            DataHora = $DataHora
+            Tamanho  = $Tamanho
+            IP       = $IP
+            Pasta    = $PastaLinha
+            LinhaNome = $LinhaAtual
+        }
+    }
+
+    return $Resultado
+}
+
+# ============================================================
+# FUNCAO - ENCONTRAR BACKUP DO SISTEMA
+# ============================================================
+
+function Find-BackupForSystem
+{
+    param(
+        [string]$Sistema,
+        [array]$Registros
+    )
+
+    $Encontrados = @(
+        $Registros | Where-Object {
+            $_.Nome.Trim() -ieq $Sistema.Trim()
+        }
+    )
+
+    if ($Encontrados.Count -eq 0)
+    {
+        return $null
+    }
+
+    # Caso existam varios backups do mesmo sistema,
+    # pega o mais recente.
+
+    return $Encontrados |
+        Sort-Object DataHora -Descending |
+        Select-Object -First 1
+}
+
+# ============================================================
+# FUNCAO - AVALIAR STATUS
+# ============================================================
+
+function Get-BackupStatus
+{
+    param(
+        [datetime]$DataBackup,
+        [string]$Tamanho
+    )
+
+    $Hoje = (Get-Date).Date
+    $Data = $DataBackup.Date
+
+    $Diferenca = ($Hoje - $Data).Days
+
+    switch ($Diferenca)
+    {
+        0
+        {
+            return @{
+                Cor       = "#00C853"
+                Texto     = "Backup realizado hoje as {0} - {1}" -f `
+                            $DataBackup.ToString("HH:mm"),
+                            $Tamanho
+                Categoria = "Hoje"
+            }
+        }
+
+        1
+        {
+            return @{
+                Cor       = "#FFD600"
+                Texto     = "Backup realizado ontem as {0} - {1}" -f `
+                            $DataBackup.ToString("HH:mm"),
+                            $Tamanho
+                Categoria = "Ontem"
+            }
+        }
+
+        2
+        {
+            return @{
+                Cor       = "#FF1744"
+                Texto     = "Backup realizado anteontem as {0} - {1}" -f `
+                            $DataBackup.ToString("HH:mm"),
+                            $Tamanho
+                Categoria = "Anteontem"
+            }
+        }
+
+        default
+        {
+            if ($Diferenca -gt 2)
+            {
+                return @{
+                    Cor       = "#AA00FF"
+                    Texto     = "Atencao - Verificar o backup - {0}" -f $Tamanho
+                    Categoria = "Antigo"
+                }
+            }
+
+            return @{
+                Cor       = "#FF9800"
+                Texto     = "Data do backup posterior a data atual - {0}" -f $Tamanho
+                Categoria = "Futuro"
+            }
+        }
+    }
+}
+
+# ============================================================
+# FUNCAO - PROCESSAR RELATORIO
+# ============================================================
+
+function Process-Report
+{
+    param(
+        [string]$Texto
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Texto))
+    {
+        $TxtServidor.Text = "Aguardando relatorio..."
+
+        $TxtServidor.Foreground =
+            [System.Windows.Media.Brushes]::Gray
+
+        Initialize-SystemList
+
+        $TxtStatus.Text =
+            "Status: Aguardando relatorio..."
+
+        return
+    }
+
+    # --------------------------------------------------------
+    # SERVIDOR
+    # --------------------------------------------------------
+
+    $ServidorInfo = Get-ServerInformation `
+        -Texto $Texto
+
+    if ($null -ne $ServidorInfo)
+    {
+        $TxtServidor.Text =
+            "$($ServidorInfo.Nome) - $($ServidorInfo.IP)"
+
+        $TxtServidor.Foreground =
+            [System.Windows.Media.Brushes]::White
+    }
+    else
+    {
+        $TxtServidor.Text =
+            "Servidor nao identificado"
+
+        $TxtServidor.Foreground =
+            [System.Windows.Media.Brushes]::Orange
+    }
+
+    # --------------------------------------------------------
+    # REGISTROS
+    # --------------------------------------------------------
+
+    $Registros = @(Get-BackupRecords -Texto $Texto)
+
+    # --------------------------------------------------------
+    # CONTADORES
+    # --------------------------------------------------------
+
+    $Total = 0
+    $Hoje = 0
+    $Ontem = 0
+    $Anteontem = 0
+    $Antigos = 0
+    $NaoEncontrados = 0
+
+    # --------------------------------------------------------
+    # ATUALIZA CADA SISTEMA
+    # --------------------------------------------------------
+
+    foreach ($Controle in $PainelBackups.Children)
+    {
+        if ($null -eq $Controle.Tag)
+        {
+            continue
+        }
+
+        $Dados = $Controle.Tag
+
+        $Sistema = $Dados.Nome
+        $Led = $Dados.Led
+        $Status = $Dados.Status
+
+        $Backup = Find-BackupForSystem `
+            -Sistema $Sistema `
+            -Registros $Registros
+
+        # ----------------------------------------------------
+        # NAO ENCONTRADO
+        # ----------------------------------------------------
+
+        if ($null -eq $Backup)
+        {
+            Set-Led `
+                -Led $Led `
+                -Cor "#666666"
+
+            $Status.Text =
+                "Backup nao localizado no relatorio"
+
+            $Status.Foreground =
+                [System.Windows.Media.Brushes]::Gray
+
+            $NaoEncontrados++
+
+            continue
+        }
+
+        # ----------------------------------------------------
+        # AVALIAR
+        # ----------------------------------------------------
+
+        $Avaliacao = Get-BackupStatus `
+            -DataBackup $Backup.DataHora `
+            -Tamanho $Backup.Tamanho
+
+        Set-Led `
+            -Led $Led `
+            -Cor $Avaliacao.Cor
+
+        $Status.Text = $Avaliacao.Texto
+
+        switch ($Avaliacao.Categoria)
+        {
+            "Hoje"
+            {
+                $Status.Foreground =
+                    [System.Windows.Media.Brushes]::LightGreen
+
+                $Hoje++
+            }
+
+            "Ontem"
+            {
+                $Status.Foreground =
+                    [System.Windows.Media.Brushes]::Yellow
+
+                $Ontem++
+            }
+
+            "Anteontem"
+            {
+                $Status.Foreground =
+                    [System.Windows.Media.Brushes]::Red
+
+                $Anteontem++
+            }
+
+            "Antigo"
+            {
+                $Status.Foreground =
+                    [System.Windows.Media.Brushes]::Violet
+
+                $Antigos++
+            }
+
+            "Futuro"
+            {
+                $Status.Foreground =
+                    [System.Windows.Media.Brushes]::Orange
+            }
+        }
+
+        $Total++
+    }
+
+    # --------------------------------------------------------
+    # STATUS GERAL
+    # --------------------------------------------------------
+
+    $DataProcessamento =
+        Get-Date -Format "dd/MM/yyyy HH:mm:ss"
+
+    $TxtStatus.Text =
+        "Status: $Total backup(s) localizado(s) | " +
+        "Hoje: $Hoje | " +
+        "Ontem: $Ontem | " +
+        "Anteontem: $Anteontem | " +
+        "Antigos: $Antigos | " +
+        "Nao localizado: $NaoEncontrados | " +
+        "Processado: $DataProcessamento"
+}
+
+# ============================================================
+# TIMER DE PROCESSAMENTO
+# ============================================================
+
+$script:TimerProcessamento =
+    New-Object System.Windows.Threading.DispatcherTimer
+
+$script:TimerProcessamento.Interval =
+    [TimeSpan]::FromMilliseconds(350)
+
+$script:TimerProcessamento.Add_Tick({
+
+    $script:TimerProcessamento.Stop()
+
+    Process-Report `
+        -Texto $TxtRelatorio.Text
+})
+
+# ============================================================
+# EVENTO TEXTCHANGED
+# ============================================================
+
+$TxtRelatorio.Add_TextChanged({
+
+    $script:TimerProcessamento.Stop()
+
+    $script:TimerProcessamento.Start()
+})
+
+# ============================================================
+# BOTAO COLAR
+# ============================================================
+
+$BtnColar.Add_Click({
+
+    try
+    {
+        if ([System.Windows.Clipboard]::ContainsText())
+        {
+            $TxtRelatorio.Text =
+                [System.Windows.Clipboard]::GetText()
+
+            $TxtRelatorio.Focus()
+
+            $TxtRelatorio.CaretIndex =
+                $TxtRelatorio.Text.Length
+        }
+        else
+        {
+            [System.Windows.MessageBox]::Show(
+                "A area de transferencia nao contem texto.",
+                "Monitor de Backups",
+                "OK",
+                "Information"
+            )
+        }
+    }
+    catch
+    {
+        [System.Windows.MessageBox]::Show(
+            "Nao foi possivel acessar a area de transferencia.`n`n$($_.Exception.Message)",
+            "Erro",
+            "OK",
+            "Error"
+        )
+    }
+})
+
+# ============================================================
+# BOTAO LIMPAR
+# ============================================================
+
+$BtnLimpar.Add_Click({
+
+    $script:TimerProcessamento.Stop()
+
+    $TxtRelatorio.Clear()
+
+    Initialize-SystemList
+
+    $TxtServidor.Text =
+        "Aguardando relatorio..."
+
+    $TxtServidor.Foreground =
+        [System.Windows.Media.Brushes]::Gray
+
+    $TxtStatus.Text =
+        "Status: Aguardando relatorio..."
+
+    $TxtRelatorio.Focus()
+})
+
+# ============================================================
+# INICIALIZACAO
+# ============================================================
+
+Initialize-SystemList
+
+$TxtRelatorio.Focus()
+
+# ============================================================
+# EXIBIR JANELA
+# ============================================================
+
+$Window.ShowDialog() | Out-Null
+```
