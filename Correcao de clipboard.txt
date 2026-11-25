@@ -1,0 +1,49 @@
+#Antigo
+# Clique campo de LOG copia para a área de transferência.
+$TxtLog.Add_PreviewMouseLeftButtonDown({
+    if (-not [string]::IsNullOrEmpty($TxtLog.Text)) {
+        try {
+            [System.Windows.Clipboard]::SetText($TxtLog.Text)
+            $TxtStatus.Text = 'Status: conteúdo do log copiado para a área de transferência.'
+        } catch {
+            [System.Windows.MessageBox]::Show(
+                "Não foi possível copiar o conteúdo.`n$($_.Exception.Message)",
+                'LogViewer',
+                [System.Windows.MessageBoxButton]::OK,
+                [System.Windows.MessageBoxImage]::Warning
+            ) | Out-Null
+        }
+    }
+})
+
+#UPDATE
+$TxtLog.Add_PreviewMouseLeftButtonDown({
+    if (-not [string]::IsNullOrEmpty($TxtLog.Text)) {
+        $copiado = $false
+        for ($tentativa = 1; $tentativa -le 5; $tentativa++) {
+            try {
+                [System.Windows.Clipboard]::SetText(
+                    $TxtLog.Text,
+                    [System.Windows.TextDataFormat]::UnicodeText
+                )
+                $copiado = $true
+                break
+            }
+            catch {
+                Start-Sleep -Milliseconds 200
+            }
+        }
+        if ($copiado) {
+            $TxtStatus.Text = 'Status: conteúdo do log copiado para a área de transferência.'
+        }
+        else {
+            $TxtStatus.Text = 'Status: não foi possível acessar a área de transferência.'
+            [System.Windows.MessageBox]::Show(
+                'A área de transferência está temporariamente indisponível.`nTente novamente em alguns segundos.',
+                'LogViewer',
+                [System.Windows.MessageBoxButton]::OK,
+                [System.Windows.MessageBoxImage]::Warning
+            ) | Out-Null
+        }
+    }
+})
